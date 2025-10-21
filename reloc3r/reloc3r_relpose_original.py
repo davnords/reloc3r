@@ -18,7 +18,7 @@ from huggingface_hub import PyTorchModelHubMixin
 # parts of the code adapted from 
 # 'https://github.com/naver/croco/blob/743ee71a2a9bf57cea6832a9064a70a0597fcfcb/models/croco.py#L21'
 # 'https://github.com/naver/dust3r/blob/c9e9336a6ba7c1f1873f9295852cea6dffaf770d/dust3r/model.py#L46'
-class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
+class Reloc3rRelpose_(nn.Module, PyTorchModelHubMixin):
     def __init__(self,
                  img_size=512,          # input image size
                  patch_size=16,         # patch_size 
@@ -34,35 +34,14 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
                  pos_embed='RoPE100',   # positional embedding (either cosine or RoPE100)
                  vit = "dust3r",
                 ):   
-        super(Reloc3rRelpose, self).__init__()
-
-        self.patch_size = patch_size
-
-        if vit == 'dinov3':
-            print('Loading DINOv3 ViT-L/16 model...')
-            self.encoder = torch.hub.load("/mimer/NOBACKUP/groups/snic2022-6-266/davnords/dinov3", "dinov3_vitl16", source='local', weights="/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth")
-        elif vit == 'dust3r':
-            print('Loading DUSt3R ViT-L/16 model...')
-            weight_path = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
-            ckpt = torch.load(weight_path, map_location='cpu', weights_only=False)
-            croco_kwargs = {'enc_embed_dim': 1024, 'enc_depth': 24, 'enc_num_heads': 16, 'dec_embed_dim': 768, 'dec_num_heads': 12, 'dec_depth': 12, 'pos_embed': 'RoPE100'}
-            model = CroCoNet(**croco_kwargs)
-            print(model.load_state_dict(ckpt['model'], strict=False))
-            self.encoder = model
-        else:
-            raise NotImplementedError(f'ViT {vit} not implemented')
-        
-        self.encoder.eval()
-        self.pos_getter = PositionGetter(patch_size=self.patch_size)
-
+        super(Reloc3rRelpose_, self).__init__()
 
         # patchify and positional embedding
-        # self.patch_embed = ManyAR_PatchEmbed(img_size, patch_size, 3, enc_embed_dim)
-        
-        
+        self.patch_size = patch_size
+        self.patch_embed = ManyAR_PatchEmbed(img_size, patch_size, 3, enc_embed_dim)
         self.pos_embed = pos_embed
         # self.enc_pos_embed = None  # nothing to add in the encoder with RoPE
-        # self.dec_pos_embed = None  # nothing to add in the decoder with RoPE
+        self.dec_pos_embed = None  # nothing to add in the decoder with RoPE
         if RoPE2D is None: raise ImportError("Cannot find cuRoPE2D, please install it following the README instructions")
         freq = float(pos_embed[len('RoPE'):])
         self.rope = RoPE2D(freq=freq)
@@ -90,9 +69,39 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
 
         self.initialize_weights() 
 
+        if vit == 'dinov3':
+            print('Loading DINOv3 ViT-L/16 model...')
+            self.encoder = torch.hub.load("/mimer/NOBACKUP/groups/snic2022-6-266/davnords/dinov3", "dinov3_vitl16", source='local', weights="/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth")
+        elif vit == 'dust3r' or vit == 'crocov2':
+            if vit == "dust3r":
+                print('Loading DUSt3R ViT-L/16 model...')
+                weight_path = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
+            else:
+                print('Loading CroCo V2 ViT-L/16 model...')
+                weight_path = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/CroCo_V2_ViTLarge_BaseDecoder.pth"
+
+            ckpt = torch.load(weight_path, map_location='cpu', weights_only=False)
+            croco_kwargs = {'enc_embed_dim': 1024, 'enc_depth': 24, 'enc_num_heads': 16, 'dec_embed_dim': 768, 'dec_num_heads': 12, 'dec_depth': 12, 'pos_embed': 'RoPE100'}
+            model = CroCoNet(**croco_kwargs)
+            print(model.load_state_dict(ckpt['model'], strict=False))
+            self.encoder = model
+        elif vit == 'mum':
+            print('Loading MuM ViT-L/16 model...')
+            from mum.model import vit_large
+            model = vit_large().eval()
+            pretrained_weights = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/MuM_ViTLarge_BaseDecoder_500k.pth"
+            ckpt = torch.load(pretrained_weights, map_location='cpu', weights_only=False)
+            print(model.load_state_dict(ckpt['model'], strict=True))
+            self.encoder = model
+        else:
+            raise NotImplementedError(f'ViT {vit} not implemented')
+
+        self.encoder.eval()
+        # self.pos_getter = PositionGetter(patch_size=self.patch_size)
+
     def initialize_weights(self):
         # patch embed 
-        # self.patch_embed._init_weights()
+        self.patch_embed._init_weights()
         # linears and layer norms
         self.apply(self._init_weights)
 
@@ -107,16 +116,23 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
             nn.init.constant_(m.weight, 1.0)
 
     def freeze_encoder(self):
-        # freeze_all_params([self.patch_embed, self.enc_blocks])
-        for param in self.encoder.parameters():
-            param.requires_grad = False 
+        freeze_all_params([
+            self.patch_embed, 
+            self.encoder
+        ])
 
     def load_state_dict(self, ckpt, **kw):
         return super().load_state_dict(ckpt, **kw)
 
     def _encode_image(self, image, true_shape):
-        x = self.encoder.forward_features(image)['x_norm_patchtokens']
-        pos = self.pos_getter(image, true_shape)
+        x, pos = self.patch_embed(image, true_shape=true_shape)
+        # assert self.enc_pos_embed is None
+        for blk in self.encoder.enc_blocks:
+            x = blk(x, pos)
+        x = self.encoder.enc_norm(x)
+
+        # x = self.encoder.forward_features(image)['x_norm_patchtokens']
+        # pos = self.pos_getter(image, true_shape)
         return x, pos, None
 
     def _encode_image_pairs(self, img1, img2, true_shape1, true_shape2):
@@ -202,11 +218,10 @@ def inference_relpose(batch, model, device, use_amp=False):
             view[name] = view[name].to(device, non_blocking=True)
     # forward. 
     view1, view2 = batch
-    with torch.amp.autocast(enabled=bool(use_amp), device_type="cuda"):
+    with torch.cuda.amp.autocast(enabled=bool(use_amp)):
         _, pose2 = model(view1, view2)
     pose2to1 = pose2["pose"]
     return pose2to1
-
 
 
 class PositionGetter(nn.Module):

@@ -38,7 +38,8 @@ class PoseHead(nn.Module):
                  num_resconv_block=2,
                  rot_representation='9D'):
         super().__init__()
-        self.patch_size = net.patch_embed.patch_size[0]
+        # self.patch_size = net.patch_embed.patch_size[0]
+        self.patch_size = net.patch_size
         self.num_resconv_block = num_resconv_block
         self.rot_representation = rot_representation  
 

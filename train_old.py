@@ -17,7 +17,8 @@ import torch
 import torch.backends.cudnn as cudnn
 torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 
-from reloc3r.relpose_transformer import RelposeTransformer
+from reloc3r.reloc3r_relpose import Reloc3rRelpose
+from reloc3r.reloc3r_relpose_original import Reloc3rRelpose_
 from reloc3r.datasets import get_data_loader  # noqa
 from reloc3r.loss import * # noqa: F401
 
@@ -30,6 +31,8 @@ import os
 import wandb
 import constants
 os.environ['WANDB_API_KEY'] = constants.WANDB_API_KEY
+
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Reloc3r training', add_help=False)
@@ -89,13 +92,12 @@ def get_args_parser():
                         type=int, help='frequence (number of iterations) to print infos while training')
 
     parser.add_argument('--freeze_encoder', action="store_true", help='freeze encoder')
+    parser.add_argument('--log_wandb', action="store_true", help='Log to wandb')
+    parser.add_argument('--name', default='exp001', type=str, help="Experiment name")
     
     # output dir
     parser.add_argument('--output_dir', default='./checkpoints/tmp', 
                         type=str, help="path where to save the output")
-    
-    parser.add_argument('--log_wandb', action="store_true", help='Log to wandb')
-    parser.add_argument('--name', default='exp001', type=str, help="Experiment name")
     return parser
 
 
@@ -159,6 +161,15 @@ def main(args):
                 if key.startswith('dec_blocks2'):
                     new_ckpt[key.replace('dec_blocks2', 'dec_blocks')] = value
         ckpt = new_ckpt
+
+        # Just removing some unecessary keys to make the "unexpected key" printout shorter
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('enc_blocks')}
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('dec_blocks2')}
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('mask_token')}
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('patch_embed')}
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('enc_norm')}
+        ckpt = {k: v for k, v in ckpt.items() if not k.startswith('downstream_head')}
+
         print(model.load_state_dict(ckpt, strict=False))
         del ckpt        # in case it occupies memory
         del new_ckpt    # in case it occupies memory
@@ -180,8 +191,7 @@ def main(args):
         model_without_ddp.freeze_encoder() 
     
     # following timm: set wd as 0 for bias and norm layers
-    # param_groups = misc.get_parameter_groups(model_without_ddp, args.weight_decay)
-    param_groups = misc.get_param_groups(model_without_ddp, args.weight_decay)
+    param_groups = misc.get_parameter_groups(model_without_ddp, args.weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
     print(optimizer)
     loss_scaler = NativeScaler()

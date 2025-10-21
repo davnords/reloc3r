@@ -27,16 +27,15 @@ from reloc3r.datasets.utils.cropping import rescale_image_depthmap
 
 
 CATEGORIES = [
-    "apple", "backpack", "ball", "banana", "baseballbat", "baseballglove",
-    "bench", "bicycle", "book", "bottle", "bowl", "broccoli", "cake", "car", "carrot",
-    "cellphone", "chair", "couch", "cup", "donut", "frisbee", "hairdryer", "handbag",
-    "hotdog", "hydrant", "keyboard", "kite", "laptop", "microwave",
-    "motorcycle",
-    "mouse", "orange", "parkingmeter", "pizza", "plant", "remote", "sandwich",
-    "skateboard", "stopsign",
-    "suitcase", "teddybear", "toaster", "toilet", "toybus",
-    "toyplane", "toytrain", "toytruck",  "tv",
-    "umbrella", "vase", "wineglass",
+    "apple", 
+    "bench", "bowl", 
+    # "cellphone", 
+    # "frisbee", "hotdog", 
+    # "keyboard",
+    # "parkingmeter",
+    # "remote", 
+    # "teddybear", "toybus", "backpack", "book", "car", "donut", "handbag", "hydrant",
+    # "motorcycle", "pizza", "stopsign", "toaster", "tv"
 ]
 CATEGORIES_IDX = {cat: i for i, cat in enumerate(CATEGORIES)}  # for seeding
 
@@ -206,7 +205,7 @@ def prepare_sequences(category, co3d_dir, output_dir, img_size, split, min_quali
         r, b = cx + min_margin_x, cy + min_margin_y
         crop_bbox = (l, t, r, b)
         input_rgb_image, depth_mask, input_camera_intrinsics = rescale_image_depthmap(
-            input_rgb_image, depth_mask, camera_intrinsics, crop_bbox)
+            input_rgb_image, depth_mask, camera_intrinsics, crop_bbox[2:])
 
         # try to set the lower dimension to img_size * 3/4 -> img_size=512 => 384
         scale_final = ((img_size * 3 // 4) / min(H, W)) + 1e-8

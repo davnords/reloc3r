@@ -17,7 +17,10 @@ import torch
 import torch.backends.cudnn as cudnn
 torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 
-from reloc3r.relpose_transformer import RelposeTransformer
+from reloc3r.reloc3r_relpose import Reloc3rRelpose
+from reloc3r.reloc3r_relpose_original import Reloc3rRelpose_
+from reloc3r.reloc3r_relpose_dust3r import Reloc3rRelposeDust3r
+from reloc3r.reloc3r_relpose_dino import Reloc3rRelposeDINO
 from reloc3r.datasets import get_data_loader  # noqa
 from reloc3r.loss import * # noqa: F401
 
@@ -180,8 +183,7 @@ def main(args):
         model_without_ddp.freeze_encoder() 
     
     # following timm: set wd as 0 for bias and norm layers
-    # param_groups = misc.get_parameter_groups(model_without_ddp, args.weight_decay)
-    param_groups = misc.get_param_groups(model_without_ddp, args.weight_decay)
+    param_groups = misc.get_parameter_groups(model_without_ddp, args.weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
     print(optimizer)
     loss_scaler = NativeScaler()

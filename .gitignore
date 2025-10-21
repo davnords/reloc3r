@@ -130,3 +130,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+output_dir/
+pairs/
+constants.py
+wandb/

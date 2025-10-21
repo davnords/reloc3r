@@ -205,12 +205,12 @@ def loss_of_one_batch(batch, model, criterion, device, use_amp=False, ret=None):
                 continue
             view[name] = view[name].to(device, non_blocking=True)
 
-    with torch.cuda.amp.autocast(enabled=bool(use_amp)):
+    with torch.amp.autocast(enabled=bool(use_amp), device_type="cuda"):
 
         pose1, pose2 = model(view1, view2)
 
         # loss is supposed to be symmetric
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast(enabled=False, device_type="cuda"):
             loss = criterion(view1, view2, pose1, pose2) if criterion is not None else None
 
     result = dict(view1=view1, view2=view2, pose1=pose1, pose2=pose2, loss=loss)

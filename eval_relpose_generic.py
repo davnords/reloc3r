@@ -4,7 +4,7 @@ import numpy as np
 import torch
 torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 
-from reloc3r.relpose_transformer import RelposeTransformer
+from reloc3r.reloc3r_generic import Reloc3rGeneric
 from reloc3r.reloc3r_relpose import Reloc3rRelpose, setup_reloc3r_relpose_model, inference_relpose
 from reloc3r.datasets import get_data_loader
 from reloc3r.utils.metric import *
@@ -13,15 +13,6 @@ from reloc3r.utils.device import to_numpy
 from tqdm import tqdm
 # from pdb import set_trace as bb
 
-
-# CUDA_VISIBLE_DEVICES=2 python eval_relpose.py --model "RelposeTransformer(vit='dinov3')" --test_dataset "MegaDepth_valid(resolution=(512,384), seed=777)" --ckpt /mimer/NOBACKUP/groups/snic2022-6-266/davnords/reloc3r/output_dir/dinov3_256/5231156/checkpoint-80.pth --amp 1
-
-# DINOv3:
-# * {'auc@5': np.float64(0.023891542132695516), 'auc@10': np.float64(0.11034403356711069), 'auc@20': np.float64(0.27244366201162334)}
-# MuM: 
-# * {'auc@5': np.float64(0.08492012865543365), 'auc@10': np.float64(0.24579739037752152), 'auc@20': np.float64(0.45101412255565326)}
-# CroCov2:
-# {'auc@5': np.float64(0.0475976287206014), 'auc@10': np.float64(0.15792263940175374), 'auc@20': np.float64(0.3345313930988311)}
 
 def get_args_parser():
     parser = argparse.ArgumentParser(description='evaluation code for relative camera pose estimation')
@@ -71,6 +62,7 @@ def test(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device)
 
+    # reloc3r_relpose = setup_reloc3r_relpose_model(args.model, device)
     print('Loading model: {:s}'.format(args.model))
     reloc3r_relpose = eval(args.model)
 

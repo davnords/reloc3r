@@ -4,19 +4,19 @@ from .base.batched_sampler import BatchedRandomSampler  # noqa: F401
 
 # datasets for training
 from .co3d import Co3d
-from .scannetpp import ScanNetpp # noqa: F401
-from .arkitscenes import ARKitScenes
+# from .scannetpp import ScanNetpp # noqa: F401
+# from .arkitscenes import ARKitScenes
 from .blendedmvs import BlendedMVS
 from .megadepth import MegaDepth
-from .dl3dv import DL3DV
-from .realestate10k import RealEstate 
+# from .dl3dv import DL3DV
+# from .realestate10k import RealEstate 
 
 # datasets for evaluation 
-from .scannet1500 import ScanNet1500
+# from .scannet1500 import ScanNet1500
 from .megadepth_valid import MegaDepth_valid
 # from .cambridge_retrieval import *
-from .cambridge import CambridgeRelpose
-from .sevenscenes import SevenScenesRelpose
+# from .cambridge import CambridgeRelpose
+# from .sevenscenes import SevenScenesRelpose
 
 
 def get_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=True, pin_mem=True):

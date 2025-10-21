@@ -1,30 +1,15 @@
-from copy import deepcopy
-import os
 import torch
 import torch.nn as nn
-torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 from functools import partial
-import reloc3r.utils.path_to_croco
-from reloc3r.patch_embed import ManyAR_PatchEmbed
-from models.pos_embed import RoPE2D 
-from models.blocks import Block, DecoderBlock
-from models.croco import CroCoNet
 from reloc3r.pose_head import PoseHead
 from reloc3r.utils.misc import freeze_all_params, transpose_to_landscape
-from pdb import set_trace as bb
-from huggingface_hub import PyTorchModelHubMixin
+from croco.models.blocks import DecoderBlock
+from croco.models.pos_embed import RoPE2D 
 
 
-# parts of the code adapted from 
-# 'https://github.com/naver/croco/blob/743ee71a2a9bf57cea6832a9064a70a0597fcfcb/models/croco.py#L21'
-# 'https://github.com/naver/dust3r/blob/c9e9336a6ba7c1f1873f9295852cea6dffaf770d/dust3r/model.py#L46'
-class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
+# For now we don't use the decoder module, even if this could work here both for CroCov2 and MuM
+class Reloc3rGeneric(nn.Module):
     def __init__(self,
-                 img_size=512,          # input image size
-                 patch_size=16,         # patch_size 
-                 enc_embed_dim=1024,    # encoder feature dimension
-                 enc_depth=24,          # encoder depth 
-                 enc_num_heads=16,      # encoder number of heads in the transformer block 
                  dec_embed_dim=768,     # decoder feature dimension 
                  dec_depth=12,          # decoder depth 
                  dec_num_heads=12,      # decoder number of heads in the transformer block 
@@ -32,53 +17,41 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
                  norm_layer=partial(nn.LayerNorm, eps=1e-6),
                  norm_im2_in_dec=True,  # whether to apply normalization of the 'memory' = (second image) in the decoder 
                  pos_embed='RoPE100',   # positional embedding (either cosine or RoPE100)
-                 vit = "dust3r",
+                 backbone="dinov3",
                 ):   
-        super(Reloc3rRelpose, self).__init__()
+        super(Reloc3rGeneric, self).__init__()
 
-        self.patch_size = patch_size
-
-        if vit == 'dinov3':
+        if backbone == "dinov3":
             print('Loading DINOv3 ViT-L/16 model...')
-            self.encoder = torch.hub.load("/mimer/NOBACKUP/groups/snic2022-6-266/davnords/dinov3", "dinov3_vitl16", source='local', weights="/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth")
-        elif vit == 'dust3r':
-            print('Loading DUSt3R ViT-L/16 model...')
-            weight_path = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
-            ckpt = torch.load(weight_path, map_location='cpu', weights_only=False)
-            croco_kwargs = {'enc_embed_dim': 1024, 'enc_depth': 24, 'enc_num_heads': 16, 'dec_embed_dim': 768, 'dec_num_heads': 12, 'dec_depth': 12, 'pos_embed': 'RoPE100'}
-            model = CroCoNet(**croco_kwargs)
-            print(model.load_state_dict(ckpt['model'], strict=False))
-            self.encoder = model
+            vit_model = torch.hub.load("/mimer/NOBACKUP/groups/snic2022-6-266/davnords/dinov3", "dinov3_vitl16", source='local', weights="/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth")
+        elif backbone == "mum":
+            print('Loading MuM ViT-L/16 model...')
+            from mum.model import vit_large
+            vit_model = vit_large().eval()
+            pretrained_weights = "/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/MuM_ViTLarge_BaseDecoder_500k.pth"
+            ckpt = torch.load(pretrained_weights, map_location='cpu', weights_only=False)
+            vit_model.load_state_dict(ckpt['model'], strict=True)
+        elif backbone == "crocov2":
+            from croco.models.croco import CroCoNet
+            ckpt = torch.load('/mimer/NOBACKUP/groups/snic2022-6-266/davnords/mv-ssl/pretrained_models/CroCo_V2_ViTLarge_BaseDecoder.pth', 'cpu')
+            vit_model = CroCoNet( **ckpt.get('croco_kwargs',{})).eval()
+            vit_model.load_state_dict(ckpt['model'], strict=True)
+            vit_model.embed_dim = vit_model.enc_embed_dim
         else:
-            raise NotImplementedError(f'ViT {vit} not implemented')
-        
-        self.encoder.eval()
+            raise ValueError(f'Unknown backbone {backbone}')
+
+        self.patch_size = vit_model.patch_size = 16
         self.pos_getter = PositionGetter(patch_size=self.patch_size)
-
-
-        # patchify and positional embedding
-        # self.patch_embed = ManyAR_PatchEmbed(img_size, patch_size, 3, enc_embed_dim)
-        
-        
-        self.pos_embed = pos_embed
-        # self.enc_pos_embed = None  # nothing to add in the encoder with RoPE
-        # self.dec_pos_embed = None  # nothing to add in the decoder with RoPE
-        if RoPE2D is None: raise ImportError("Cannot find cuRoPE2D, please install it following the README instructions")
         freq = float(pos_embed[len('RoPE'):])
         self.rope = RoPE2D(freq=freq)
 
-        # ViT encoder 
-        # self.enc_depth = enc_depth
-        # self.enc_embed_dim = enc_embed_dim
-        # self.enc_blocks = nn.ModuleList([
-        #     Block(enc_embed_dim, enc_num_heads, mlp_ratio=mlp_ratio, qkv_bias=True, norm_layer=norm_layer, rope=self.rope)
-        #     for i in range(enc_depth)])
-        # self.enc_norm = norm_layer(enc_embed_dim)
+        self.backbone = vit_model
+        self.backbone.eval() 
 
         # ViT decoder
         self.dec_depth = dec_depth
         self.dec_embed_dim = dec_embed_dim
-        self.decoder_embed = nn.Linear(enc_embed_dim, dec_embed_dim, bias=True)  # transfer from encoder to decoder 
+        self.decoder_embed = nn.Linear(self.backbone.embed_dim, dec_embed_dim, bias=True)  # transfer from encoder to decoder 
         self.dec_blocks = nn.ModuleList([
             DecoderBlock(dec_embed_dim, dec_num_heads, mlp_ratio=mlp_ratio, qkv_bias=True, norm_layer=norm_layer, norm_mem=norm_im2_in_dec, rope=self.rope)
             for i in range(dec_depth)])
@@ -91,8 +64,6 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
         self.initialize_weights() 
 
     def initialize_weights(self):
-        # patch embed 
-        # self.patch_embed._init_weights()
         # linears and layer norms
         self.apply(self._init_weights)
 
@@ -107,27 +78,26 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
             nn.init.constant_(m.weight, 1.0)
 
     def freeze_encoder(self):
-        # freeze_all_params([self.patch_embed, self.enc_blocks])
-        for param in self.encoder.parameters():
-            param.requires_grad = False 
+        for param in self.backbone.parameters():
+            param.requires_grad = False    
 
     def load_state_dict(self, ckpt, **kw):
         return super().load_state_dict(ckpt, **kw)
 
     def _encode_image(self, image, true_shape):
-        x = self.encoder.forward_features(image)['x_norm_patchtokens']
+        feat = self.backbone.forward_features(image)['x_norm_patchtokens']
         pos = self.pos_getter(image, true_shape)
-        return x, pos, None
+        return feat, pos
 
     def _encode_image_pairs(self, img1, img2, true_shape1, true_shape2):
         if img1.shape[-2:] == img2.shape[-2:]:
-            out, pos, _ = self._encode_image(torch.cat((img1, img2), dim=0),
+            out, pos = self._encode_image(torch.cat((img1, img2), dim=0),
                                              torch.cat((true_shape1, true_shape2), dim=0))
             out, out2 = out.chunk(2, dim=0)
             pos, pos2 = pos.chunk(2, dim=0)
         else:
-            out, pos, _ = self._encode_image(img1, true_shape1)
-            out2, pos2, _ = self._encode_image(img2, true_shape2)
+            out, pos = self._encode_image(img1, true_shape1)
+            out2, pos2 = self._encode_image(img2, true_shape2)
         return out, out2, pos, pos2
 
     def _encoder(self, view1, view2):
@@ -180,18 +150,6 @@ class Reloc3rRelpose(nn.Module, PyTorchModelHubMixin):
         return pose1, pose2
 
 
-def setup_reloc3r_relpose_model(model_args, device):
-    if '224' in model_args:
-        ckpt_path = 'siyan824/reloc3r-224'
-    elif '512' in model_args:
-        ckpt_path = 'siyan824/reloc3r-512'
-    reloc3r_relpose = Reloc3rRelpose.from_pretrained(ckpt_path)
-    reloc3r_relpose.to(device)
-    reloc3r_relpose.eval()
-    print('Model loaded from ', ckpt_path)
-    return reloc3r_relpose
-
-
 @torch.no_grad()
 def inference_relpose(batch, model, device, use_amp=False): 
     # to device. 
@@ -202,11 +160,10 @@ def inference_relpose(batch, model, device, use_amp=False):
             view[name] = view[name].to(device, non_blocking=True)
     # forward. 
     view1, view2 = batch
-    with torch.amp.autocast(enabled=bool(use_amp), device_type="cuda"):
+    with torch.cuda.amp.autocast(enabled=bool(use_amp)):
         _, pose2 = model(view1, view2)
     pose2to1 = pose2["pose"]
     return pose2to1
-
 
 
 class PositionGetter(nn.Module):

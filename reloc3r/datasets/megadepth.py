@@ -67,6 +67,8 @@ class MegaDepth(BaseStereoViewDataset):
         for im_id in [im1_id, im2_id]:
             img = self.all_images[im_id]
             try:
+                if img.endswith('.jpg') or img.endswith('.png') or img.endswith('.JPG'):
+                    img = img[:-4]
                 image = imread_cv2(osp.join(seq_path, img + '.jpg'))
                 camera_params = np.load(osp.join(seq_path, img + ".npz"))
             except Exception as e:
