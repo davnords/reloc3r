@@ -68,7 +68,7 @@ def process_seq(seq_path, img_size):
     n_images = len(poses)
     combinations = [(i, j) for i, j in itertools.combinations(range(0, n_images), 2)
                                 if 0 < abs(i-j) <= int(n_images * 45 / 360)  and abs(i-j) % 5 == 0]
-    bb()
+    # bb()
     impath = osp.join(seq_path, "images_8/frame_00001.png")
     input_rgb_image = cv2.imread(impath)
     H, W = input_rgb_image.shape[:2]
@@ -112,7 +112,11 @@ if __name__ == '__main__':
         pairs_all = []
         for line in tqdm(lines):
             seq_path = os.path.join(args.dl3dv_dir, line.strip())
-            seq_pairs_info = process_seq(seq_path, img_size= args.img_size)
+            try:
+                seq_pairs_info = process_seq(seq_path, img_size= args.img_size)
+            except:
+                print(f"Error processing sequence: {seq_path}")
+                seq_pairs_info = []
             pairs_all+=seq_pairs_info
         with open(os.path.join(args.dl3dv_dir, f"metadata_{split}.pkl"), 'wb') as f:
             pickle.dump(pairs_all, f)

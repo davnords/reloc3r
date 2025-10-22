@@ -23,6 +23,13 @@ from tqdm import tqdm
 # CroCov2:
 # {'auc@5': np.float64(0.0475976287206014), 'auc@10': np.float64(0.15792263940175374), 'auc@20': np.float64(0.3345313930988311)}
 
+# Finetuning
+# MuM:
+# * {'auc@5': np.float64(0.16652185324033103), 'auc@10': np.float64(0.3517917633295059), 'auc@20': np.float64(0.5532298429290453)}
+
+# CroCov2:
+# * {'auc@5': np.float64(0.07672052969932555), 'auc@10': np.float64(0.20933479200204216), 'auc@20': np.float64(0.39184619931777315)}
+
 def get_args_parser():
     parser = argparse.ArgumentParser(description='evaluation code for relative camera pose estimation')
 

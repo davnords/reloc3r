@@ -34,8 +34,10 @@ os.environ['WANDB_API_KEY'] = constants.WANDB_API_KEY
 def get_args_parser():
     parser = argparse.ArgumentParser('Reloc3r training', add_help=False)
     # model and criterion
-    parser.add_argument('--model', default="Reloc3rRelpose(img_size=512)",
-                        type=str, help="string containing the model to build")
+    # parser.add_argument('--model', default="Reloc3rRelpose(img_size=512)",
+    #                     type=str, help="string containing the model to build")
+    parser.add_argument('--vit', default='dinov3',
+                        type=str, help="type of ViT backbone")
     parser.add_argument('--pretrained', default=None, 
                         type=str, help='path of a starting checkpoint')
     parser.add_argument('--train_criterion', default="RelativeCameraPoseRegression(L21)",
@@ -44,7 +46,7 @@ def get_args_parser():
                         type=str, help="test criterion")
 
     # dataset
-    parser.add_argument('--train_dataset', required=True, 
+    parser.add_argument('--train_dataset', default="50_000 @ MegaDepth(split='train', resolution=[(256, 256)], transform=ColorJitter)", 
                         type=str, help="training set")
     parser.add_argument('--test_dataset', default='[None]', 
                         type=str, help="testing set")
@@ -95,7 +97,7 @@ def get_args_parser():
                         type=str, help="path where to save the output")
     
     parser.add_argument('--log_wandb', action="store_true", help='Log to wandb')
-    parser.add_argument('--name', default='exp001', type=str, help="Experiment name")
+    parser.add_argument('--name', default=None, type=str, help="Experiment name")
     return parser
 
 
@@ -104,7 +106,6 @@ def main(args):
     global_rank = misc.get_rank()
     world_size = misc.get_world_size()
 
-    print("output_dir: "+args.output_dir)
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -119,7 +120,9 @@ def main(args):
     device = torch.device(device)
 
     wandb_mode = "online" if args.log_wandb and misc.get_rank() == 0 else "disabled"
-    wandb.init(project="reloc3r", entity=constants.WANDB_ENTITY, name=args.name, reinit=False, mode = wandb_mode)
+
+    expiriment_name = args.name if args.name is not None else args.vit
+    wandb.init(project="reloc3r", entity=constants.WANDB_ENTITY, name=expiriment_name, reinit=False, mode = wandb_mode)
 
     # fix the seed
     seed = args.seed + misc.get_rank()
@@ -137,8 +140,9 @@ def main(args):
                         for dataset in args.test_dataset.split('+')}
 
     # model
-    print('Loading model: {:s}'.format(args.model))
-    model = eval(args.model)
+    print('Loading ViT: {:s}'.format(args.vit))
+    # model = eval(args.model)
+    model = RelposeTransformer(vit=args.vit)
     print(f'>> Creating train criterion = {args.train_criterion}')
     train_criterion = eval(args.train_criterion).to(device)
     print(f'>> Creating test criterion = {args.test_criterion or args.train_criterion}')

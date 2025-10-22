@@ -12,7 +12,7 @@ from reloc3r.utils.image import imread_cv2
 from pdb import set_trace as bb
 
 
-DATA_ROOT = "./data/dl3dv_processed"
+DATA_ROOT = "./data/DL3DV10K"
 
 
 class DL3DV(BaseStereoViewDataset):
@@ -38,7 +38,7 @@ class DL3DV(BaseStereoViewDataset):
         for group in groups:
             scene, label, pose = group
 
-            impath = osp.join(self.ROOT, '1K', scene, label)  
+            impath = osp.join(self.ROOT, scene, label)  
 
             # load image
             input_rgb_image = imread_cv2(impath)

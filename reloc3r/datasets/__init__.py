@@ -8,8 +8,13 @@ from .co3d import Co3d
 # from .arkitscenes import ARKitScenes
 from .blendedmvs import BlendedMVS
 from .megadepth import MegaDepth
-# from .dl3dv import DL3DV
-# from .realestate10k import RealEstate 
+from .dl3dv import DL3DV
+from .realestate10k import RealEstate 
+from .wildrgbd import WildRGBD
+from .scannet import ScanNet
+from .mvssynth import MVSSynth
+from .vkitti import VKitti
+from .hypersim import Hypersim
 
 # datasets for evaluation 
 # from .scannet1500 import ScanNet1500
