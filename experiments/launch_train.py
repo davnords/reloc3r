@@ -14,8 +14,24 @@ def main():
     args.training_module = training.__name__
 
     # args.train_dataset = "50_000 @ MegaDepth(split='train', resolution=[(256, 256)], transform=ColorJitter)"
-    args.train_dataset = "50_000 @ MegaDepth(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ RealEstate(split='train', resolution=[(256, 256)])+50_000 @ DL3DV(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ WildRGBD(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ ScanNet(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ MVSSynth(split='train', resolution=[(256, 256)])+50_000 @ VKitti(split='train', resolution=[(256, 256)])"
-    args.test_dataset = "1_000 @ MegaDepth_valid(split='test', resolution=(256, 256), seed=777)+1_000 @ RealEstate(split='test', resolution=(256, 256), seed=777)"
+    # args.train_dataset = "50_000 @ MegaDepth(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ BlendedMVS(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ RealEstate(split='train', resolution=[(256, 256)])+50_000 @ DL3DV(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ WildRGBD(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ ScanNet(split='train', resolution=[(256, 256)], transform=ColorJitter)+50_000 @ MVSSynth(split='train', resolution=[(256, 256)])+25_000 @ VKitti(split='train', resolution=[(256, 256)])+50_000 @ Hypersim(split='train', resolution=[(256, 256)])"
+    # args.test_dataset = "1_000 @ MegaDepth_valid(split='test', resolution=(256, 256), seed=777)+1_000 @ BlendedMVS(split='test', resolution=(256, 256), seed=777)+1_000 @ RealEstate(split='test', resolution=(256, 256), seed=777)"
+    args.train_dataset = (
+        "600_000 @ MegaDepth(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "600_000 @ RealEstate(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "400_000 @ BlendedMVS(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "300_000 @ DL3DV(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "150_000 @ ScanNet(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "150_000 @ WildRGBD(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        "50_000 @ VKitti(split='train', resolution=[(256, 256)], transform=ColorJitter)"
+        # "50_000 @ MVSSynth(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+        # "100_000 @ Hypersim(split='train', resolution=[(256, 256)], transform=ColorJitter)+"
+    )
+    args.test_dataset = (
+        "1_000 @ MegaDepth_valid(split='test', resolution=(256, 256), seed=777)+"
+        "1_000 @ BlendedMVS(split='test', resolution=(256, 256), seed=777)+"
+        "1_000 @ RealEstate(split='test', resolution=(256, 256), seed=777)"
+    )
     args.blr = 1.5e-4 
     args.min_lr = 1e-6
     args.warmup_epochs = 5 
@@ -34,3 +50,6 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# python experiments/launch_train.py --vit mum --ngpus 4 --nodes 4 --timeout 2000 --log_wandb --email
+# python experiments/launch_train.py --vit mum --ngpus 4 --nodes 8 --timeout 1800 --log_wandb --email

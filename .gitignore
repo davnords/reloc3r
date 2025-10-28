@@ -134,3 +134,4 @@ output_dir/
 pairs/
 constants.py
 wandb/
+slurm_outs/

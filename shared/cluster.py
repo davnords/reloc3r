@@ -67,8 +67,8 @@ def get_slurm_account(cluster_type: Optional[ClusterType] = None) -> Optional[st
         return None
 
     SLURM_ACCOUNTS = {
-        ClusterType.ALVIS: "NAISS2024-5-609",
-        # ClusterType.ALVIS: "NAISS2025-5-255",
+        # ClusterType.ALVIS: "NAISS2024-5-609",
+        ClusterType.ALVIS: "NAISS2025-5-255",
         # ClusterType.BERZELIUS: "berzelius-2024-338",
         ClusterType.BERZELIUS: "berzelius-2025-148",
     }

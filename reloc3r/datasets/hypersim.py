@@ -126,8 +126,11 @@ class Hypersim(BaseStereoViewDataset):
             poses[:, :3, 3:] = R[None] @ translations
 
         K = np.array(K).reshape(3, 3).astype(np.float32)
-        print('K:', K)
+        cx = K[0, 2]
+        cy = K[1, 2]
 
+        if cy > 768 or cx > 1024:
+            return self._get_views(idx, resolution, rng)
 
         image_paths = {int(ip.split(".")[-3]): ip for ip in image_paths}
         image_ids = image_paths.keys()
@@ -135,9 +138,9 @@ class Hypersim(BaseStereoViewDataset):
         image_ids = sorted(image_ids)
         num_images = len(image_ids)
         if num_images < 2:
-            return []  # skip if scene too short
+            raise ValueError(f"Not enough images in scene {scene_name}")
 
-        max_distance = 50
+        max_distance = 65
         id1 = random.choice(image_ids)
         low = max(image_ids[0], id1 - max_distance)
         high = min(image_ids[-1], id1 + max_distance)
@@ -157,7 +160,6 @@ class Hypersim(BaseStereoViewDataset):
             impath = image_paths[img_id]
             # osp.join(self.ROOT, scene, "color", label)  
             input_rgb_image = imread_cv2(impath)
-            print('input_rgb_image shape:', input_rgb_image.shape)
             rgb_image, intrinsics = self._crop_resize_if_necessary(
                 input_rgb_image, K, resolution, rng=rng, info=impath)
 

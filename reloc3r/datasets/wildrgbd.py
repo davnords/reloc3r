@@ -51,9 +51,14 @@ class WildRGBD(BaseStereoViewDataset):
         assert mask_bg in (True, False, 'rand')
         self.mask_bg = mask_bg
 
+
+        invalid_sequences = [
+            "chair/scene_490"
+        ]
         scenes = {}
         for category in CATEGORIES: 
             scenes[category] = os.listdir(osp.join(self.ROOT,category, "scenes"))
+            scenes[category] = [s for s in scenes[category] if f"{category}/{s}" not in invalid_sequences]
         self.scenes = scenes
         # os.listdir(self.ROOT)
 

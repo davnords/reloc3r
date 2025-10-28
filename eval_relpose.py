@@ -30,6 +30,8 @@ from tqdm import tqdm
 # CroCov2:
 # * {'auc@5': np.float64(0.07672052969932555), 'auc@10': np.float64(0.20933479200204216), 'auc@20': np.float64(0.39184619931777315)}
 
+# CUDA_VISIBLE_DEVICES=2 python eval_relpose.py --model "RelposeTransformer(vit='mum')" --test_dataset "MegaDepth_valid(resolution=(256,256), seed=777)" --ckpt /mimer/NOBACKUP/groups/snic2022-6-266/davnords/reloc3r/output_dir/mum/5237964/checkpoint-100.pth --amp 1
+
 def get_args_parser():
     parser = argparse.ArgumentParser(description='evaluation code for relative camera pose estimation')
 
@@ -51,8 +53,8 @@ def get_args_parser():
     parser.add_argument('--amp', type=int, default=1,
                                 choices=[0, 1], help="Use Automatic Mixed Precision for pretraining")
 
-    # parser.add_argument('--output_dir', type=str, 
-    #     default='./output', help='path where to save the pose errors')
+    parser.add_argument('--output_dir', type=str, 
+        default='./output', help='path where to save the pose errors')
 
     return parser
 
@@ -129,11 +131,11 @@ def test(args):
         # auc
         print(error_auc(rerrs, terrs, thresholds=[5, 10, 20]))
 
-        # # save err list to file
-        # err_list = np.concatenate((rerrs[:,None], terrs[:,None]), axis=-1)
-        # output_file = '{}/pose_error_list.txt'.format(args.output_dir)
-        # np.savetxt(output_file, err_list)
-        # print('Pose errors saved to {}'.format(output_file))
+        # save err list to file
+        err_list = np.concatenate((rerrs[:,None], terrs[:,None]), axis=-1)
+        output_file = '{}/pose_error_list.txt'.format(args.output_dir)
+        np.savetxt(output_file, err_list)
+        print('Pose errors saved to {}'.format(output_file))
 
 
 if __name__ == '__main__':

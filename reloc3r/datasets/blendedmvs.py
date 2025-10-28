@@ -9,21 +9,21 @@ DATA_ROOT = "./data/blendedmvs_processed"
 
 
 class BlendedMVS (BaseStereoViewDataset):
-    def __init__(self, *args, ROOT=DATA_ROOT, split=None, **kwargs):
+    def __init__(self, *args, ROOT=DATA_ROOT, split="train", **kwargs):
         self.ROOT = ROOT
         super().__init__(*args, **kwargs)
         self._load_data(split)
 
     def _load_data(self, split):
         pairs = np.load(osp.join(self.ROOT, 'blendedmvs_pairs.npy'))
-        if split is None:
-            selection = slice(None)
         if split == 'train':
             # select 90% of all scenes
             selection = (pairs['seq_low'] % 10) > 0
-        if split == 'val':
+        elif split == 'test':
             # select 10% of all scenes
             selection = (pairs['seq_low'] % 10) == 0
+        else:
+            raise ValueError(f'Invalid split: {split}')
         self.pairs = pairs[selection]
 
         # list of all scenes
